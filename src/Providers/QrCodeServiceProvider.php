@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Dunn\QrCode\Laravel\Providers;
 
 use Dunn\QrCode\Laravel\QrCodeFactory;
+use Dunn\QrCode\Renderer\Renderer;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Blade;
@@ -48,12 +49,15 @@ final class QrCodeServiceProvider extends ServiceProvider
         Blade::directive('qrcode', static fn (string $expression): string => "<?php echo app('qrcode')->svg({$expression}); ?>");
 
         // Response macro: return response()->qrcode('https://example.com');
-        ResponseFacade::macro('qrcode', function (string $data, int $status = 200): Response {
+        // Pass a Renderer to opt into styled rendering:
+        //   response()->qrcode($url, 200, new SvgRenderer(moduleShape: new DotModule()))
+        ResponseFacade::macro('qrcode', function (string $data, int $status = 200, ?Renderer $renderer = null): Response {
             /** @var QrCodeFactory $factory */
             $factory = app('qrcode');
-            $svg = $factory->svg($data);
+            $renderer ??= $factory->renderer();
+            $body = $renderer->render($factory->create($data)->build());
 
-            return new Response($svg, $status, ['Content-Type' => 'image/svg+xml']);
+            return new Response($body, $status, ['Content-Type' => $renderer->mimeType()]);
         });
     }
 

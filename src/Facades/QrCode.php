@@ -11,8 +11,9 @@ use Illuminate\Support\Facades\Facade;
  * Static-call shortcut for the bound {@see \Dunn\QrCode\Laravel\QrCodeFactory}.
  *
  * @method static Builder create(string $data)
- * @method static string svg(string $data)
+ * @method static string svg(string $data, ?\Dunn\QrCode\Renderer\Renderer $renderer = null)
  * @method static \Dunn\QrCode\Renderer\Renderer renderer()
+ * @method static \Dunn\QrCode\Laravel\QrCodeFactory withRenderer(\Dunn\QrCode\Renderer\Renderer $renderer)
  */
 final class QrCode extends Facade
 {
