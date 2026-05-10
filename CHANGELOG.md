@@ -5,6 +5,41 @@ format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 once it reaches 1.0.0. Pre-1.0 minor bumps may carry breaking changes.
 
+## [0.3.0] — 2026-05-11
+
+Tracks `abduns/qrcode` v0.3.0 (`RoundedModule`, `LinearGradient` /
+`RadialGradient`, `GdPngRenderer` parity).
+
+### Added
+- No new API surface in this bridge package — the v0.2 factory passthrough
+  (`QrCode::svg($data, $renderer)` / `QrCode::withRenderer($renderer)` /
+  `response()->qrcode($data, $status, $renderer)`) already accepts any
+  `Renderer` instance, including the new v0.3 styled renderers.
+
+### Changed
+- Composer constraint bumped to `abduns/qrcode: *@dev` (local) — public
+  releases will require `^0.3`.
+- README's "Styled output" section linked to the updated core
+  customization docs.
+
+### Usage with v0.3 features
+
+```php
+use Dunn\QrCode\Laravel\Facades\QrCode;
+use Dunn\QrCode\Renderer\Svg\SvgRenderer;
+use Dunn\QrCode\Style\ModuleShape\RoundedModule;
+use Dunn\QrCode\Style\Gradient\{LinearGradient, GradientStop};
+use Dunn\QrCode\Style\Color;
+
+$svg = QrCode::svg('https://abduns.dev', new SvgRenderer(
+    moduleShape: new RoundedModule(),
+    dotColor: new LinearGradient([
+        new GradientStop(0.0, Color::hex('#264653')),
+        new GradientStop(1.0, Color::hex('#2a9d8f')),
+    ]),
+));
+```
+
 ## [0.2.0] — 2026-05-11
 
 Tracks `abduns/qrcode` v0.2.0 (per-region eye styles, per-region colours,
