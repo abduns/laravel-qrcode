@@ -1,0 +1,68 @@
+{
+    "name": "abduns/laravel-qrcode",
+    "description": "Laravel 11/12 bridge for the abduns/qrcode QR Code generator: ServiceProvider, Facade, Blade directive, and response()->qrcode() macro.",
+    "type": "library",
+    "license": "MIT",
+    "keywords": ["qr", "qr-code", "qrcode", "laravel", "blade"],
+    "authors": [
+        {
+            "name": "Abduns",
+            "email": "abduns@example.com"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "abduns/qrcode": "*@dev",
+        "illuminate/support": "^11.0|^12.0"
+    },
+    "require-dev": {
+        "friendsofphp/php-cs-fixer": "^3.64",
+        "larastan/larastan": "^3.0",
+        "orchestra/testbench": "^9.0|^10.0",
+        "pestphp/pest": "^3.0",
+        "pestphp/pest-plugin-laravel": "^3.0",
+        "phpstan/phpstan": "^2.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Dunn\\QrCode\\Laravel\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Dunn\\QrCode\\Laravel\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Dunn\\QrCode\\Laravel\\Providers\\QrCodeServiceProvider"
+            ],
+            "aliases": {
+                "QrCode": "Dunn\\QrCode\\Laravel\\Facades\\QrCode"
+            }
+        }
+    },
+    "scripts": {
+        "test": "pest",
+        "stan": "phpstan analyse --memory-limit=512M",
+        "fix": "php-cs-fixer fix",
+        "lint": "php-cs-fixer fix --dry-run --diff",
+        "ci": ["@lint", "@stan", "@test"]
+    },
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../qr-code",
+            "options": { "symlink": true }
+        }
+    ],
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
