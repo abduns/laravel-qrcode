@@ -1,6 +1,6 @@
 # abduns/laravel-qrcode
 
-Laravel 11/12 bridge for [`abduns/qrcode`](../qr-code).
+Laravel 12/13 bridge for [`abduns/qrcode`](../qr-code).
 
 ## Install
 

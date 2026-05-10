@@ -5,6 +5,24 @@ format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 once it reaches 1.0.0. Pre-1.0 minor bumps may carry breaking changes.
 
+## [1.0.0] — 2026-05-11
+
+First stable release. Tracks `abduns/qrcode` v1.0.0.
+
+### Changed (BREAKING)
+- Dropped Laravel 11 support. Now requires Laravel 12 or 13.
+- `orchestra/testbench` constraint bumped to `^10.0|^11.0`.
+- `abduns/qrcode` constraint pinned to `^1.0` (was `*@dev`).
+- Composer `repositories` block switched from a local `path` to a
+  GitHub `vcs` entry pointing at https://github.com/abduns/qrcode.
+
+### Added
+- No new API surface in this release — the v0.2 factory passthrough
+  (`QrCode::svg($data, $renderer)`, `QrCode::withRenderer($renderer)`,
+  `response()->qrcode($data, $status, $renderer)`) already supports
+  every styled renderer added in `abduns/qrcode` v1.0.0 (RoundedModule,
+  RoundedEye*, LinearGradient, RadialGradient, Logo).
+
 ## [0.3.0] — 2026-05-11
 
 Tracks `abduns/qrcode` v0.3.0 (`RoundedModule`, `LinearGradient` /
