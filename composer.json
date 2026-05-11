@@ -18,7 +18,7 @@
     ],
     "require": {
         "php": "^8.2",
-        "abduns/qrcode": "^1.0",
+        "abduns/qrcode": "^1.1 || dev-main",
         "illuminate/support": "^12.0|^13.0"
     },
     "require-dev": {
@@ -61,6 +61,13 @@
         ]
     },
     "repositories": [
+        {
+            "type": "path",
+            "url": "../qr-code",
+            "options": {
+                "symlink": true
+            }
+        },
         {
             "type": "vcs",
             "url": "https://github.com/abduns/qrcode"

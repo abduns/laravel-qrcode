@@ -5,12 +5,30 @@ format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 once it reaches 1.0.0. Pre-1.0 minor bumps may carry breaking changes.
 
-## [Unreleased]
+## [1.1.1] — 2026-05-11
+
+Patch release. No new API surface; widens an existing macro's accepted type
+and tightens the README.
 
 ### Changed
 - `response()->qrcode()` now accepts `string|\Stringable`, so payload value
   objects (`VCard`, `Event`, `Wifi`, …) can be passed directly — matching
   `QrCodeFactory::create()` and `QrCodeFactory::svg()`.
+
+### Added
+- README: "Error handling" section enumerating `DataTooLongException`,
+  `InvalidConfigurationException`, and `PayloadException` so apps know what
+  to catch around `response()->qrcode()` and the Blade directive.
+- README: PNG response example showing `response()->qrcode($data, 200,
+  new GdPngRenderer())` — the `Content-Type` header follows the renderer's
+  `mimeType()` automatically.
+- README: `Builder` chaining example (`QrCode::wifi(...)->errorCorrection(...)
+  ->build()`) — the typed factories return a `Builder` so the full core
+  pipeline is available.
+- `config/qrcode.php`: inline note clarifying that `size` / `margin` /
+  `foreground` / `background` only apply to the default `SvgRenderer` and
+  are ignored once a custom renderer is pinned via `withRenderer()` or
+  passed to `svg()`.
 
 ### Fixed
 - README: corrected the prose claiming `response()->qrcode()` already

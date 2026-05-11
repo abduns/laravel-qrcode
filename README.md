@@ -66,6 +66,29 @@ $svg = QrCode::svg($card);
 Route::get('/contact.svg', fn () => response()->qrcode($card));
 ```
 
+### Builder chaining
+
+Every typed factory returns the core `Builder`, so the full pipeline
+(`errorCorrection`, `forceVersion`, `forceMode`, `build`) is available
+without dropping back to the core `QrCode::create()`:
+
+```php
+use Dunn\QrCode\Encoder\Mode;
+use Dunn\QrCode\EccLevel;
+use Dunn\QrCode\Laravel\Facades\QrCode;
+use Dunn\QrCode\Payload\WifiAuth;
+
+$qr = QrCode::wifi('Office', 'hunter2', WifiAuth::WPA)
+    ->errorCorrection(EccLevel::High)   // overrides config('qrcode.ecc')
+    ->forceVersion(8)
+    ->forceMode(Mode::Byte)
+    ->build();
+```
+
+Pass the resulting `QrCode` to any renderer, or hand the payload value
+object straight to `svg()` / `response()->qrcode()` to skip the explicit
+`build()`.
+
 ### Blade directive
 
 ```blade
@@ -75,7 +98,18 @@ Route::get('/contact.svg', fn () => response()->qrcode($card));
 ### Response macro
 
 ```php
+use Dunn\QrCode\Renderer\Png\GdPngRenderer;
+
+// SVG (the default — Content-Type: image/svg+xml).
 Route::get('/qr/{data}', fn (string $data) => response()->qrcode($data));
+
+// PNG — pass a GdPngRenderer. Content-Type follows the renderer's
+// mimeType() automatically, so the response comes back as image/png.
+Route::get('/qr.png/{data}', fn (string $data) => response()->qrcode(
+    $data,
+    200,
+    new GdPngRenderer(size: 300),
+));
 ```
 
 ### Styled output
@@ -116,6 +150,46 @@ See the [core package's customization docs](https://github.com/abduns/qrcode#sty
 for the full catalogue of module shapes, eye styles, colours, and logo
 options.
 
+## Error handling
+
+All exceptions thrown by the core extend `Dunn\QrCode\Exception\QrCodeException`
+(which extends `RuntimeException`). The bridge does not catch them — they
+bubble straight out of `QrCode::svg()`, `response()->qrcode()`, the
+`@qrcode` directive, and any `Builder` chain.
+
+- **`DataTooLongException`** — input cannot fit into a v40 symbol at the
+  chosen ECC level. Drop the ECC, shorten the payload, or pick a denser
+  mode via `forceMode(Mode::Numeric)`.
+- **`InvalidConfigurationException`** — renderer misconfigured: `ext-gd`
+  missing for `GdPngRenderer`, logo path doesn't exist, unsupported MIME,
+  or `sizeRatio` exceeds the ECC budget.
+- **`PayloadException`** — typed-payload value object rejected its input
+  (empty SSID, latitude out of range, end-before-start event, …).
+
+Inside Laravel you'll typically want to handle these in `app/Exceptions/Handler.php`
+or with a route-scoped `try`/`catch`:
+
+```php
+use Dunn\QrCode\Exception\DataTooLongException;
+use Dunn\QrCode\Exception\InvalidConfigurationException;
+use Dunn\QrCode\Exception\PayloadException;
+use Dunn\QrCode\Laravel\Facades\QrCode;
+
+Route::get('/qr/{data}', function (string $data) {
+    try {
+        return response()->qrcode($data);
+    } catch (PayloadException | DataTooLongException $e) {
+        abort(422, $e->getMessage());
+    } catch (InvalidConfigurationException $e) {
+        report($e);
+        abort(500);
+    }
+});
+```
+
+See the [core package's error-handling docs](https://github.com/abduns/qrcode#error-handling)
+for the canonical reference.
+
 ## Config
 
 `config/qrcode.php` exposes:
@@ -130,8 +204,14 @@ options.
 ]
 ```
 
-These defaults feed the basic `SvgRenderer` the factory builds when no
-custom renderer is supplied.
+- `ecc` is applied to every `Builder` the factory hands out (so it covers
+  `create()`, all typed payload factories, `svg()`, the Blade directive,
+  and the response macro).
+- `size`, `margin`, `foreground`, `background` only feed the basic
+  `SvgRenderer` the factory builds when no custom renderer is supplied.
+  Once you pin a renderer via `QrCode::withRenderer(...)` or pass one to
+  `svg()` / `response()->qrcode()`, those config keys are ignored — the
+  renderer carries its own configuration.
 
 ## License
 
