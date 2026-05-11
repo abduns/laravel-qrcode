@@ -16,9 +16,15 @@ php artisan vendor:publish --tag=qrcode-config
 ```php
 use Dunn\QrCode\Laravel\Facades\QrCode;
 
-$svg = QrCode::svg('https://example.com');
-$builder = QrCode::create('https://example.com');  // returns the core Builder
+$svg     = QrCode::svg('https://example.com');     // SVG markup (the default)
+$png     = QrCode::png('https://example.com');     // raw PNG bytes (ext-gd)
+$ascii   = QrCode::console('https://example.com'); // unicode block string
+$builder = QrCode::create('https://example.com');  // raw core Builder
 ```
+
+`svg()` / `png()` / `console()` are renderer-pinned sugar. `render($data)`
+is the renderer-agnostic primary — it uses whatever renderer the factory's
+currently configured to produce (see [Config](#config) below).
 
 ### Typed payloads
 
@@ -112,6 +118,10 @@ Route::get('/qr.png/{data}', fn (string $data) => response()->qrcode(
 ));
 ```
 
+If you want PNG everywhere without passing a renderer to every call, set
+`'renderer' => 'png'` in [config/qrcode.php](#config) — `response()->qrcode()`
+will then default to PNG output with the right `Content-Type`.
+
 ### Styled output
 
 Build a custom renderer from the core package and pass it through:
@@ -144,6 +154,37 @@ $factory->svg('any payload');
 
 // Response macro variant — Content-Type follows the renderer's mimeType().
 Route::get('/qr/{data}', fn (string $data) => response()->qrcode($data, 200, $styled));
+```
+
+For a gradient + rounded preset:
+
+```php
+use Dunn\QrCode\Style\Gradient\{LinearGradient, GradientStop};
+use Dunn\QrCode\Style\EyeStyle\RoundedEyeOuter;
+use Dunn\QrCode\Style\EyeStyle\RoundedEyeInner;
+use Dunn\QrCode\Style\ModuleShape\RoundedModule;
+
+$gradient = new SvgRenderer(
+    moduleShape: new RoundedModule(),
+    eyeOuter: new RoundedEyeOuter(),
+    eyeInner: new RoundedEyeInner(),
+    dotColor: new LinearGradient([
+        new GradientStop(0.0, Color::hex('#264653')),
+        new GradientStop(1.0, Color::hex('#2a9d8f')),
+    ]),
+);
+
+$svg = QrCode::svg('https://abduns.dev', $gradient);
+```
+
+For terminal debugging (e.g., from `php artisan tinker`):
+
+```php
+use Dunn\QrCode\Renderer\Console\ConsoleRenderer;
+
+echo QrCode::svg('https://abduns.dev', new ConsoleRenderer(margin: 1));
+// …or, equivalently, the renderer-pinned sugar:
+echo QrCode::console('https://abduns.dev');
 ```
 
 See the [core package's customization docs](https://github.com/abduns/qrcode#styling)
@@ -197,6 +238,7 @@ for the canonical reference.
 ```php
 [
     'ecc'        => EccLevel::Medium,
+    'renderer'   => 'svg',         // 'svg' | 'png' | 'console'
     'size'       => 300,
     'margin'     => 4,
     'foreground' => '#000000',
@@ -205,13 +247,20 @@ for the canonical reference.
 ```
 
 - `ecc` is applied to every `Builder` the factory hands out (so it covers
-  `create()`, all typed payload factories, `svg()`, the Blade directive,
-  and the response macro).
-- `size`, `margin`, `foreground`, `background` only feed the basic
-  `SvgRenderer` the factory builds when no custom renderer is supplied.
-  Once you pin a renderer via `QrCode::withRenderer(...)` or pass one to
-  `svg()` / `response()->qrcode()`, those config keys are ignored — the
-  renderer carries its own configuration.
+  `create()`, all typed payload factories, `render()` / `svg()`, the Blade
+  directive, and the response macro).
+- `renderer` picks which renderer the factory builds when nothing else is
+  supplied. `render()` and `response()->qrcode()` follow it. Keep this as
+  `'svg'` if you use the `@qrcode` Blade directive — the directive emits
+  the renderer's output inline, so PNG bytes would land as binary in
+  your HTML. `QrCode::svg()` / `QrCode::png()` / `QrCode::console()`
+  ignore this setting and always force their renderer type.
+- `size`, `margin`, `foreground`, `background` feed the renderer the
+  factory builds (which keys apply depends on the renderer: SVG/PNG use
+  all four, console only uses `margin`). Once you pin a renderer via
+  `QrCode::withRenderer(...)` or pass one to `render()` / `svg()` /
+  `response()->qrcode()`, those keys are ignored — the renderer carries
+  its own configuration.
 
 ## License
 

@@ -20,7 +20,10 @@ use Illuminate\Support\Facades\Facade;
  * @method static Builder wifi(string $ssid, ?string $password = null, \Dunn\QrCode\Payload\WifiAuth $auth = \Dunn\QrCode\Payload\WifiAuth::WPA, bool $hidden = false)
  * @method static Builder vCard(\Dunn\QrCode\Payload\VCard $vcard)
  * @method static Builder event(\Dunn\QrCode\Payload\Event $event)
+ * @method static string render(string|\Stringable $data, ?\Dunn\QrCode\Renderer\Renderer $renderer = null)
  * @method static string svg(string|\Stringable $data, ?\Dunn\QrCode\Renderer\Renderer $renderer = null)
+ * @method static string png(string|\Stringable $data, ?\Dunn\QrCode\Renderer\Renderer $renderer = null)
+ * @method static string console(string|\Stringable $data, ?\Dunn\QrCode\Renderer\Renderer $renderer = null)
  * @method static \Dunn\QrCode\Renderer\Renderer renderer()
  * @method static \Dunn\QrCode\Laravel\QrCodeFactory withRenderer(\Dunn\QrCode\Renderer\Renderer $renderer)
  */

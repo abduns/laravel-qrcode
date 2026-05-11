@@ -27,7 +27,7 @@ final class QrCodeServiceProvider extends ServiceProvider
             /** @var \Illuminate\Contracts\Config\Repository $repo */
             $repo = $app->make('config');
 
-            /** @var array{ecc?: \Dunn\QrCode\EccLevel, size?: int, margin?: int, foreground?: string, background?: string} $config */
+            /** @var array{ecc?: \Dunn\QrCode\EccLevel, renderer?: 'svg'|'png'|'console', size?: int, margin?: int, foreground?: string, background?: string} $config */
             $config = $repo->get('qrcode', []);
 
             return new QrCodeFactory($config);

@@ -17,6 +17,8 @@ use Dunn\QrCode\Payload\VCard;
 use Dunn\QrCode\Payload\Wifi;
 use Dunn\QrCode\Payload\WifiAuth;
 use Dunn\QrCode\QrCode;
+use Dunn\QrCode\Renderer\Console\ConsoleRenderer;
+use Dunn\QrCode\Renderer\Png\GdPngRenderer;
 use Dunn\QrCode\Renderer\Renderer;
 use Dunn\QrCode\Renderer\Svg\SvgRenderer;
 
@@ -37,6 +39,7 @@ final class QrCodeFactory
     /**
      * @param array{
      *     ecc?: EccLevel,
+     *     renderer?: 'svg'|'png'|'console',
      *     size?: int,
      *     margin?: int,
      *     foreground?: string,
@@ -123,26 +126,59 @@ final class QrCodeFactory
     }
 
     /**
-     * Build the QR for $data and render it. Pass a Renderer to override the
-     * default (e.g. a styled SvgRenderer with DotModule + CircleEyeOuter).
+     * Build the QR for $data and render it with the default renderer (or the
+     * override). The default is picked from config('qrcode.renderer') —
+     * `svg` / `png` / `console` — or the one pinned via withRenderer().
+     *
+     * This is the renderer-agnostic primary; svg()/png()/console() are sugar
+     * pinned to a specific renderer family.
      */
-    public function svg(string|\Stringable $data, ?Renderer $renderer = null): string
+    public function render(string|\Stringable $data, ?Renderer $renderer = null): string
     {
         return ($renderer ?? $this->renderer())->render($this->create($data)->build());
     }
 
     /**
-     * Return the default renderer — either the one supplied to the factory
-     * constructor, or a basic SvgRenderer built from config('qrcode').
+     * Render with the default renderer (or the override). Behaves identically
+     * to render() — kept as the historical name and called by the @qrcode
+     * Blade directive. If you've set config('qrcode.renderer') = 'png' the
+     * directive will emit PNG bytes inline, which is rarely useful — keep the
+     * default as 'svg' for HTML embedding.
+     */
+    public function svg(string|\Stringable $data, ?Renderer $renderer = null): string
+    {
+        return $this->render($data, $renderer);
+    }
+
+    /**
+     * Render to PNG. Forces a GdPngRenderer built from config when no
+     * override is supplied — ignores config('qrcode.renderer') and any
+     * pinned default, so the result is always PNG bytes.
+     *
+     * Requires the `ext-gd` extension at render time.
+     */
+    public function png(string|\Stringable $data, ?Renderer $renderer = null): string
+    {
+        return ($renderer ?? $this->buildRenderer('png'))->render($this->create($data)->build());
+    }
+
+    /**
+     * Render to a monospace console string. Forces a ConsoleRenderer when no
+     * override is supplied. Useful for tinker/CLI debugging.
+     */
+    public function console(string|\Stringable $data, ?Renderer $renderer = null): string
+    {
+        return ($renderer ?? $this->buildRenderer('console'))->render($this->create($data)->build());
+    }
+
+    /**
+     * Return the default renderer — either the one pinned via withRenderer(),
+     * or a fresh instance built from config('qrcode') honouring the
+     * `renderer` key (`svg` | `png` | `console`).
      */
     public function renderer(): Renderer
     {
-        return $this->defaultRenderer ?? new SvgRenderer(
-            size: (int) ($this->config['size'] ?? 300),
-            margin: (int) ($this->config['margin'] ?? 4),
-            foreground: (string) ($this->config['foreground'] ?? '#000000'),
-            background: (string) ($this->config['background'] ?? '#ffffff'),
-        );
+        return $this->defaultRenderer ?? $this->buildRenderer($this->config['renderer'] ?? 'svg');
     }
 
     /**
@@ -155,5 +191,26 @@ final class QrCodeFactory
     public function withRenderer(Renderer $renderer): self
     {
         return new self($this->config, $renderer);
+    }
+
+    private function buildRenderer(string $kind): Renderer
+    {
+        return match ($kind) {
+            'png' => new GdPngRenderer(
+                size: (int) ($this->config['size'] ?? 300),
+                margin: (int) ($this->config['margin'] ?? 4),
+                foreground: (string) ($this->config['foreground'] ?? '#000000'),
+                background: (string) ($this->config['background'] ?? '#ffffff'),
+            ),
+            'console' => new ConsoleRenderer(
+                margin: (int) ($this->config['margin'] ?? 1),
+            ),
+            default => new SvgRenderer(
+                size: (int) ($this->config['size'] ?? 300),
+                margin: (int) ($this->config['margin'] ?? 4),
+                foreground: (string) ($this->config['foreground'] ?? '#000000'),
+                background: (string) ($this->config['background'] ?? '#ffffff'),
+            ),
+        };
     }
 }
