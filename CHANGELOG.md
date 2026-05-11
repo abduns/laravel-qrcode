@@ -5,6 +5,22 @@ format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 once it reaches 1.0.0. Pre-1.0 minor bumps may carry breaking changes.
 
+## [Unreleased]
+
+### Changed
+- `response()->qrcode()` now accepts `string|\Stringable`, so payload value
+  objects (`VCard`, `Event`, `Wifi`, …) can be passed directly — matching
+  `QrCodeFactory::create()` and `QrCodeFactory::svg()`.
+
+### Fixed
+- README: corrected the prose claiming `response()->qrcode()` already
+  accepted `\Stringable` payloads (it didn't until this release).
+- README: cross-package links now point at
+  https://github.com/abduns/qrcode instead of a local monorepo path so they
+  resolve on Packagist and GitHub.
+- composer.json description updated to reflect Laravel 12/13 (Laravel 11
+  was dropped in 1.0.0).
+
 ## [1.1.0] — 2026-05-11
 
 Tracks `abduns/qrcode` v1.1.0 (semantic payload helpers).

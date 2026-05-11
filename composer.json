@@ -1,6 +1,6 @@
 {
     "name": "abduns/laravel-qrcode",
-    "description": "Laravel 11/12 bridge for the abduns/qrcode QR Code generator: ServiceProvider, Facade, Blade directive, and response()->qrcode() macro.",
+    "description": "Laravel 12/13 bridge for the abduns/qrcode QR Code generator: ServiceProvider, Facade, Blade directive, and response()->qrcode() macro.",
     "type": "library",
     "license": "MIT",
     "keywords": [

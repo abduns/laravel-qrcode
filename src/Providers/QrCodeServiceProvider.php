@@ -51,7 +51,7 @@ final class QrCodeServiceProvider extends ServiceProvider
         // Response macro: return response()->qrcode('https://example.com');
         // Pass a Renderer to opt into styled rendering:
         //   response()->qrcode($url, 200, new SvgRenderer(moduleShape: new DotModule()))
-        ResponseFacade::macro('qrcode', function (string $data, int $status = 200, ?Renderer $renderer = null): Response {
+        ResponseFacade::macro('qrcode', function (string|\Stringable $data, int $status = 200, ?Renderer $renderer = null): Response {
             /** @var QrCodeFactory $factory */
             $factory = app('qrcode');
             $renderer ??= $factory->renderer();

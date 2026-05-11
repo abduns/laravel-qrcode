@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Dunn\QrCode\Payload\VCard;
 use Illuminate\Support\Facades\Route;
 
 it('registers a response()->qrcode() macro', function (): void {
@@ -21,4 +22,16 @@ it('honours a custom status code passed to the macro', function (): void {
     $response = $this->get('/qr/teapot');
 
     expect($response->getStatusCode())->toBe(418);
+});
+
+it('accepts a Stringable payload', function (): void {
+    Route::get('/vcard', fn () => response()->qrcode(VCard::make('Jane')));
+
+    $response = $this->get('/vcard');
+
+    $response->assertOk();
+    $response->assertHeader('Content-Type', 'image/svg+xml');
+    expect($response->getContent())
+        ->toStartWith('<svg ')
+        ->toContain('</svg>');
 });

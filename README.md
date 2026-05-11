@@ -1,6 +1,6 @@
 # abduns/laravel-qrcode
 
-Laravel 12/13 bridge for [`abduns/qrcode`](../qr-code).
+Laravel 12/13 bridge for [`abduns/qrcode`](https://github.com/abduns/qrcode).
 
 ## Install
 
@@ -22,7 +22,7 @@ $builder = QrCode::create('https://example.com');  // returns the core Builder
 
 ### Typed payloads
 
-Mirroring the core's [payload helpers](../qr-code/README.md#payload-helpers),
+Mirroring the core's [payload helpers](https://github.com/abduns/qrcode#payload-helpers),
 the facade exposes nine semantic factories. Each returns a `Builder`
 pre-configured with the ECC from `config/qrcode.php`, so you can chain the
 usual `errorCorrection()` / `forceVersion()` overrides or call `build()`
@@ -60,8 +60,8 @@ $event = Event::make('Launch party')
 
 QrCode::event($event)->build();
 
-// All of the above also work in svg() / response()->qrcode() directly,
-// because payload value objects are \Stringable:
+// Payload value objects are \Stringable, so they can be passed straight
+// to svg() or response()->qrcode() without calling ->build() first.
 $svg = QrCode::svg($card);
 Route::get('/contact.svg', fn () => response()->qrcode($card));
 ```
@@ -112,7 +112,7 @@ $factory->svg('any payload');
 Route::get('/qr/{data}', fn (string $data) => response()->qrcode($data, 200, $styled));
 ```
 
-See the [core package's customization docs](../qr-code/README.md#customization)
+See the [core package's customization docs](https://github.com/abduns/qrcode#styling)
 for the full catalogue of module shapes, eye styles, colours, and logo
 options.
 
