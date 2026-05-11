@@ -20,6 +20,52 @@ $svg = QrCode::svg('https://example.com');
 $builder = QrCode::create('https://example.com');  // returns the core Builder
 ```
 
+### Typed payloads
+
+Mirroring the core's [payload helpers](../qr-code/README.md#payload-helpers),
+the facade exposes nine semantic factories. Each returns a `Builder`
+pre-configured with the ECC from `config/qrcode.php`, so you can chain the
+usual `errorCorrection()` / `forceVersion()` overrides or call `build()`
+directly. Pair with `svg()` or `response()->qrcode()` to render.
+
+```php
+use Dunn\QrCode\Laravel\Facades\QrCode;
+use Dunn\QrCode\Payload\Event;
+use Dunn\QrCode\Payload\VCard;
+use Dunn\QrCode\Payload\WifiAuth;
+
+// Link / text / phone / sms / email / geo
+QrCode::url('https://example.com')->build();
+QrCode::text('hello')->build();
+QrCode::phone('+14155550123')->build();
+QrCode::sms('+14155550123', body: 'hi')->build();
+QrCode::email('a@b.com', subject: 'hello', body: 'hi')->build();
+QrCode::geo(37.7749, -122.4194, label: 'SF')->build();
+
+// WiFi join
+QrCode::wifi('MyNet', password: 'secret', auth: WifiAuth::WPA)->build();
+
+// vCard — compose the contact, then hand to the facade
+$card = VCard::make('John Doe')
+    ->withOrg('Acme')
+    ->addPhone('+14155550123', VCard::TYPE_WORK)
+    ->addEmail('john@acme.com');
+
+QrCode::vCard($card)->build();
+
+// Calendar event
+$event = Event::make('Launch party')
+    ->from(new DateTimeImmutable('2026-06-01 18:00', new DateTimeZone('UTC')))
+    ->to(new DateTimeImmutable('2026-06-01 22:00', new DateTimeZone('UTC')));
+
+QrCode::event($event)->build();
+
+// All of the above also work in svg() / response()->qrcode() directly,
+// because payload value objects are \Stringable:
+$svg = QrCode::svg($card);
+Route::get('/contact.svg', fn () => response()->qrcode($card));
+```
+
 ### Blade directive
 
 ```blade

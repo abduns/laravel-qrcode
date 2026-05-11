@@ -5,6 +5,43 @@ format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 once it reaches 1.0.0. Pre-1.0 minor bumps may carry breaking changes.
 
+## [1.1.0] — 2026-05-11
+
+Tracks `abduns/qrcode` v1.1.0 (semantic payload helpers).
+
+### Added
+- Nine new payload factories on `QrCodeFactory` and `Facades\QrCode`, each
+  returning the existing `Builder` pre-configured with the ECC from
+  `config/qrcode.php`:
+  - `QrCode::url(string $url)`
+  - `QrCode::text(string $text)`
+  - `QrCode::phone(string $number)`
+  - `QrCode::sms(string $number, ?string $body = null, bool $useSmsUri = false)`
+  - `QrCode::email(string $to, ?string $subject = null, ?string $body = null, list<string> $cc = [], list<string> $bcc = [])`
+  - `QrCode::geo(float $latitude, float $longitude, ?string $label = null)`
+  - `QrCode::wifi(string $ssid, ?string $password = null, WifiAuth $auth = WifiAuth::WPA, bool $hidden = false)`
+  - `QrCode::vCard(VCard $vcard)`
+  - `QrCode::event(Event $event)`
+- `QrCodeFactory::create()` and `QrCodeFactory::svg()` now accept
+  `string|\Stringable`, so any core payload value object can be passed
+  directly.
+
+### Changed
+- No breaking changes. Existing `QrCode::create($string)` / `QrCode::svg(...)` /
+  `response()->qrcode(...)` calls behave identically.
+
+### Usage
+
+```php
+use Dunn\QrCode\Laravel\Facades\QrCode;
+use Dunn\QrCode\Payload\VCard;
+use Dunn\QrCode\Payload\WifiAuth;
+
+QrCode::url('https://abduns.dev')->build();
+QrCode::wifi('Office', 'hunter2', WifiAuth::WPA)->build();
+QrCode::svg(VCard::make('Jane')->addEmail('jane@acme.com'));
+```
+
 ## [1.0.0] — 2026-05-11
 
 First stable release. Tracks `abduns/qrcode` v1.0.0.
