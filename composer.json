@@ -18,11 +18,11 @@
     ],
     "require": {
         "php": "^8.2",
-        "abduns/qrcode": "^1.1 || dev-main",
-        "illuminate/support": "^12.0|^13.0"
+        "abduns/qrcode": "^1.1 || dev-main"
     },
     "require-dev": {
         "friendsofphp/php-cs-fixer": "^3.64",
+        "illuminate/support": "^12.0|^13.0",
         "larastan/larastan": "^3.0",
         "orchestra/testbench": "^10.0|^11.0",
         "pestphp/pest": "^3.0",
