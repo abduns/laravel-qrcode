@@ -62,13 +62,6 @@
     },
     "repositories": [
         {
-            "type": "path",
-            "url": "../qr-code",
-            "options": {
-                "symlink": true
-            }
-        },
-        {
             "type": "vcs",
             "url": "https://github.com/abduns/qrcode"
         }
