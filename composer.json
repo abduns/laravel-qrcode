@@ -50,7 +50,7 @@
         }
     },
     "scripts": {
-        "test": "pest",
+        "test": "@php ./vendor/bin/pest",
         "stan": "phpstan analyse --memory-limit=512M",
         "fix": "php-cs-fixer fix",
         "lint": "php-cs-fixer fix --dry-run --diff",

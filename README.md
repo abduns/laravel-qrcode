@@ -3,7 +3,6 @@
 Laravel 12/13 bridge for the abduns/qrcode QR Code generator: ServiceProvider, Facade, Blade directive, and response()->qrcode() macro.
 
 [![Tests](https://github.com/abduns/laravel-qrcode/actions/workflows/tests.yml/badge.svg)](https://github.com/abduns/laravel-qrcode/actions)
-[![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/abduns/laravel-qrcode/main/coverage.json)](https://github.com/abduns/laravel-qrcode)
 [![Version](https://img.shields.io/packagist/v/abduns/laravel-qrcode.svg)](https://packagist.org/packages/abduns/laravel-qrcode)
 [![Downloads](https://img.shields.io/packagist/dt/abduns/laravel-qrcode.svg)](https://packagist.org/packages/abduns/laravel-qrcode)
 [![License](https://img.shields.io/packagist/l/abduns/laravel-qrcode.svg)](LICENSE.md)
