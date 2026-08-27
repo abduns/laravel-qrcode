@@ -5,6 +5,23 @@ format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 once it reaches 1.0.0. Pre-1.0 minor bumps may carry breaking changes.
 
+## [1.3.1] — 2026-08-27
+
+CI and constraint widening so Laravel 13 is tested, not only claimed.
+
+### Changed
+- `illuminate/support: ^12.0|^13.0` is a runtime requirement (the bridge
+  already used Support / HTTP / Blade APIs).
+- Dev constraints allow both test stacks: Pest `^3.0|^4.0`,
+  `pest-plugin-laravel` `^3.0|^4.1`, Testbench `^10.0|^11.0`.
+
+### CI
+- Matrix now includes Laravel 13 on PHP 8.3 and 8.4 (Pest 4 + Testbench 11).
+  Laravel 12 stays on PHP 8.2–8.4 with Pest 3 — Pest 4 and Laravel 13 both
+  require PHP 8.3+.
+- Each job pins `illuminate/support`, `orchestra/testbench`, `pestphp/pest`,
+  and `pestphp/pest-plugin-laravel` before `composer update`.
+
 ## [1.3.0] — 2026-08-27
 
 Additive release — no breaking changes. Makes the PHP bridge straightforward

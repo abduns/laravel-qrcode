@@ -16,7 +16,7 @@ composer require abduns/laravel-qrcode
 php artisan vendor:publish --tag=qrcode-config
 ```
 
-Requires PHP 8.2+ and Laravel 12 or 13. PNG output needs `ext-gd`. CI runs Pest, PHPStan, and php-cs-fixer on PHP 8.2–8.4 against Laravel 12.
+Requires PHP 8.2+ and Laravel 12 or 13. PNG output needs `ext-gd`. CI runs Pest, PHPStan, and php-cs-fixer on PHP 8.2–8.4 × Laravel 12 and PHP 8.3–8.4 × Laravel 13.
 
 ---
 
@@ -271,8 +271,8 @@ composer test
 | Platform | Supported |
 |---|---|
 | PHP 8.2 / 8.3 / 8.4 | ✅ CI |
-| Laravel 12 | ✅ CI |
-| Laravel 13 | ✅ runtime (`illuminate/support` APIs used here are 12/13-compatible) |
+| Laravel 12 | ✅ CI (PHP 8.2–8.4, Pest 3) |
+| Laravel 13 | ✅ CI (PHP 8.3–8.4, Pest 4; Laravel 13 needs PHP 8.3+) |
 | Inertia + React / Vue | ✅ (`payload()` / `dataUri()`) |
 | JSON API / SPA | ✅ (`return QrCode::payload(...)`) |
 | Blade | ✅ (`@qrcode`) |
