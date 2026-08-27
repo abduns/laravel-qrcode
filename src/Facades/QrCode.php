@@ -24,6 +24,10 @@ use Illuminate\Support\Facades\Facade;
  * @method static string svg(string|\Stringable $data, ?\Dunn\QrCode\Renderer\Renderer $renderer = null)
  * @method static string png(string|\Stringable $data, ?\Dunn\QrCode\Renderer\Renderer $renderer = null)
  * @method static string console(string|\Stringable $data, ?\Dunn\QrCode\Renderer\Renderer $renderer = null)
+ * @method static \Dunn\QrCode\Laravel\QrCodePayload payload(string|\Stringable $data, ?\Dunn\QrCode\Renderer\Renderer $renderer = null)
+ * @method static string dataUri(string|\Stringable $data, ?\Dunn\QrCode\Renderer\Renderer $renderer = null)
+ * @method static array{mimeType: string, dataUri: string, svg: string|null} toArray(string|\Stringable $data, ?\Dunn\QrCode\Renderer\Renderer $renderer = null)
+ * @method static \Illuminate\Http\Response toResponse(string|\Stringable $data, int $status = 200, ?\Dunn\QrCode\Renderer\Renderer $renderer = null, ?string $filename = null, ?int $maxAge = null, bool $download = false)
  * @method static \Dunn\QrCode\Renderer\Renderer renderer()
  * @method static \Dunn\QrCode\Laravel\QrCodeFactory withRenderer(\Dunn\QrCode\Renderer\Renderer $renderer)
  */

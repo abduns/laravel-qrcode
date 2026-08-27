@@ -1,6 +1,6 @@
 {
     "name": "abduns/laravel-qrcode",
-    "description": "Laravel 12/13 bridge for the abduns/qrcode QR Code generator: ServiceProvider, Facade, Blade directive, and response()->qrcode() macro.",
+    "description": "Laravel 12/13 bridge for abduns/qrcode: Facade, Blade, response()->qrcode(), and JSON/data-URI helpers for React, Vue, and Inertia.",
     "type": "library",
     "license": "MIT",
     "keywords": [
@@ -8,7 +8,11 @@
         "qr-code",
         "qrcode",
         "laravel",
-        "blade"
+        "blade",
+        "inertia",
+        "react",
+        "vue",
+        "svg"
     ],
     "authors": [
         {
@@ -18,7 +22,7 @@
     ],
     "require": {
         "php": "^8.2",
-        "abduns/qrcode": "^1.1 || dev-main"
+        "abduns/qrcode": "^1.1"
     },
     "require-dev": {
         "friendsofphp/php-cs-fixer": "^3.64",
@@ -59,12 +63,6 @@
             "@test"
         ]
     },
-    "repositories": [
-        {
-            "type": "vcs",
-            "url": "https://github.com/abduns/qrcode"
-        }
-    ],
     "config": {
         "sort-packages": true,
         "allow-plugins": {

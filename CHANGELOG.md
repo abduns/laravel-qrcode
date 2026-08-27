@@ -5,6 +5,61 @@ format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 once it reaches 1.0.0. Pre-1.0 minor bumps may carry breaking changes.
 
+## [1.3.0] — 2026-08-27
+
+Additive release — no breaking changes. Makes the PHP bridge straightforward
+to consume from Laravel + React, Laravel + Vue, Inertia, and JSON APIs
+without shipping JavaScript.
+
+### Added
+- `QrCodePayload` — JSON-serializable DTO with `mimeType`, `dataUri`, and
+  `svg` (raw markup when the renderer produced SVG, otherwise `null`).
+  Implements `Arrayable`, `JsonSerializable`, and `Stringable` (casts to
+  the data URI). Returning it from a controller is a JSON response.
+- `QrCodeFactory::payload(string|\Stringable $data, ?Renderer $renderer = null)`
+  — primary JS-facing helper.
+- `QrCodeFactory::dataUri(...)` — `data:{mime};base64,...` for `<img src>`.
+- `QrCodeFactory::toArray(...)` — same shape as the payload, as a plain array.
+- `QrCodeFactory::toResponse(...)` — HTTP response builder used by the
+  `response()->qrcode()` macro. Always sets `ETag`. Optional `filename`,
+  `maxAge` (seconds, `Cache-Control: public`), and `download` (attachment
+  vs inline). A filename without an extension gets `.svg` / `.png` / `.txt`
+  from the renderer MIME type. Filenames are stripped of quotes and CR/LF.
+- Facade `@method` entries for `payload`, `dataUri`, `toArray`, `toResponse`.
+- `response()->qrcode()` named extras: `filename`, `maxAge`, `download`.
+  Existing positional calls (`$data`, `$status`, `$renderer`) are unchanged.
+
+### Tests
+- `tests/Unit/JsFriendlyOutputTest.php` — data URI encoding (SVG / PNG /
+  console), payload JSON shape, string cast, facade proxies, and
+  `return QrCode::payload()` as a JSON route.
+- `tests/Unit/ResponseMacroTest.php` — ETag, Content-Disposition (inline /
+  attachment / extension / sanitization), Cache-Control, default headers,
+  factory/macro parity.
+
+### Documentation
+- README rewritten around the three JS consumption patterns (JSON payload,
+  image URL, data URI) with Inertia React, Inertia Vue, and SPA fetch
+  examples. Blade, response macro, payloads, styled output, config, and
+  error handling restored.
+- README CI badge now points at `.github/workflows/ci.yml` (it previously
+  linked a non-existent `tests.yml`, so the badge was always broken).
+
+### CI
+- `composer.lock` no longer pins `abduns/qrcode` to a local `path` repo
+  (`../qr-code`); CI installs `^1.1` from Packagist.
+- Workflow uses `composer update` after pinning `illuminate/support` to the
+  matrix Laravel version (install against a stale lock was the previous
+  failure mode).
+- `actions/checkout@v5` (Node 24 runtime; v4 warned that Node 20 is dropped
+  2026-09-16).
+- Explicit `gd` + `mbstring` extensions so PNG tests run on the runner.
+
+### Notes
+- Backward compatible. The only behavioural change on `response()->qrcode()`
+  is an `ETag` header (quoted SHA-256 of the body). No `Content-Disposition`
+  or `Cache-Control` unless you opt in.
+
 ## [1.2.0] — 2026-05-11
 
 Additive release — no breaking changes. Closes the convenience-surface gaps

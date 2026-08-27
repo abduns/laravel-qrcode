@@ -16,19 +16,20 @@ jobs:
         laravel: ['12.*']
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
+          extensions: mbstring, gd
           coverage: none
           tools: composer:v2
 
       - name: Install dependencies
         run: |
           composer require "illuminate/support:${{ matrix.laravel }}" --no-update --no-interaction
-          composer install --prefer-dist --no-progress --no-interaction
+          composer update --prefer-dist --no-progress --no-interaction --no-ansi
 
       - name: Pest
         run: vendor/bin/pest --colors=always

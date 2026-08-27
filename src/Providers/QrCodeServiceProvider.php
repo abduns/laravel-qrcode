@@ -49,15 +49,22 @@ final class QrCodeServiceProvider extends ServiceProvider
         Blade::directive('qrcode', static fn (string $expression): string => "<?php echo app('qrcode')->svg({$expression}); ?>");
 
         // Response macro: return response()->qrcode('https://example.com');
-        // Pass a Renderer to opt into styled rendering:
+        // Named extras (filename / maxAge / download) are for <img src> caching
+        // and file downloads. Pass a Renderer as the 3rd argument to style:
         //   response()->qrcode($url, 200, new SvgRenderer(moduleShape: new DotModule()))
-        ResponseFacade::macro('qrcode', function (string|\Stringable $data, int $status = 200, ?Renderer $renderer = null): Response {
+        //   response()->qrcode($url, filename: 'ticket.svg', maxAge: 86400)
+        ResponseFacade::macro('qrcode', function (
+            string|\Stringable $data,
+            int $status = 200,
+            ?Renderer $renderer = null,
+            ?string $filename = null,
+            ?int $maxAge = null,
+            bool $download = false,
+        ): Response {
             /** @var QrCodeFactory $factory */
             $factory = app('qrcode');
-            $renderer ??= $factory->renderer();
-            $body = $renderer->render($factory->create($data)->build());
 
-            return new Response($body, $status, ['Content-Type' => $renderer->mimeType()]);
+            return $factory->toResponse($data, $status, $renderer, $filename, $maxAge, $download);
         });
     }
 

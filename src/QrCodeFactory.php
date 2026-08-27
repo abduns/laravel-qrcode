@@ -21,6 +21,7 @@ use Dunn\QrCode\Renderer\Console\ConsoleRenderer;
 use Dunn\QrCode\Renderer\Png\GdPngRenderer;
 use Dunn\QrCode\Renderer\Renderer;
 use Dunn\QrCode\Renderer\Svg\SvgRenderer;
+use Illuminate\Http\Response;
 
 /**
  * Convenience factory bound into the Laravel container as `qrcode`.
@@ -191,6 +192,110 @@ final class QrCodeFactory
     public function withRenderer(Renderer $renderer): self
     {
         return new self($this->config, $renderer);
+    }
+
+    /**
+     * JSON-friendly payload for Inertia, React, Vue, and API clients.
+     *
+     *     return QrCode::payload('https://example.com');
+     *     // {"mimeType":"image/svg+xml","dataUri":"data:image/svg+xml;base64,...","svg":"<svg ...>"}
+     */
+    public function payload(string|\Stringable $data, ?Renderer $renderer = null): QrCodePayload
+    {
+        $renderer ??= $this->renderer();
+        $body = $renderer->render($this->create($data)->build());
+        $mime = $renderer->mimeType();
+
+        return new QrCodePayload(
+            mimeType: $mime,
+            dataUri: QrCodePayload::encodeDataUri($mime, $body),
+            svg: str_starts_with($mime, 'image/svg') ? $body : null,
+        );
+    }
+
+    /**
+     * Data URI for <img src>. Same renderer chain as {@see render()}.
+     *
+     *     <img src={qr.dataUri} />
+     *     <img :src="qr.dataUri" />
+     */
+    public function dataUri(string|\Stringable $data, ?Renderer $renderer = null): string
+    {
+        return $this->payload($data, $renderer)->dataUri;
+    }
+
+    /**
+     * @return array{mimeType: string, dataUri: string, svg: string|null}
+     */
+    public function toArray(string|\Stringable $data, ?Renderer $renderer = null): array
+    {
+        return $this->payload($data, $renderer)->toArray();
+    }
+
+    /**
+     * HTTP response for <img src="/qr/..."> or a file download.
+     *
+     * Always sets ETag. Pass $filename and/or $download for
+     * Content-Disposition, $maxAge (seconds) for Cache-Control.
+     */
+    public function toResponse(
+        string|\Stringable $data,
+        int $status = 200,
+        ?Renderer $renderer = null,
+        ?string $filename = null,
+        ?int $maxAge = null,
+        bool $download = false,
+    ): Response {
+        $renderer ??= $this->renderer();
+        $body = $renderer->render($this->create($data)->build());
+        $mime = $renderer->mimeType();
+
+        $headers = ['Content-Type' => $mime];
+
+        $name = $this->dispositionFilename($filename, $mime, $download);
+        if ($name !== null) {
+            $disposition = $download ? 'attachment' : 'inline';
+            $headers['Content-Disposition'] = $disposition.'; filename="'.$name.'"';
+        }
+
+        $response = new Response($body, $status, $headers);
+        $response->setEtag(hash('sha256', $body));
+
+        if ($maxAge !== null) {
+            $response->setPublic();
+            $response->setMaxAge($maxAge);
+        }
+
+        return $response;
+    }
+
+    private function dispositionFilename(?string $filename, string $mime, bool $download): ?string
+    {
+        if ($filename === null && ! $download) {
+            return null;
+        }
+
+        $name = str_replace(["\r", "\n", "\0", '"', "'", '\\', '/'], '', (string) $filename);
+        $name = trim($name);
+
+        if ($name === '' || $name === '.' || $name === '..') {
+            $name = 'qrcode';
+        }
+
+        if (pathinfo($name, PATHINFO_EXTENSION) === '') {
+            $name .= '.'.$this->extensionForMime($mime);
+        }
+
+        return $name;
+    }
+
+    private function extensionForMime(string $mime): string
+    {
+        return match ($mime) {
+            'image/png' => 'png',
+            'text/plain' => 'txt',
+            default => 'svg',
+        };
     }
 
     private function buildRenderer(string $kind): Renderer
