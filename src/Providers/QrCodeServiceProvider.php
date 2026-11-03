@@ -53,6 +53,7 @@ final class QrCodeServiceProvider extends ServiceProvider
         // and file downloads. Pass a Renderer as the 3rd argument to style:
         //   response()->qrcode($url, 200, new SvgRenderer(moduleShape: new DotModule()))
         //   response()->qrcode($url, filename: 'ticket.svg', maxAge: 86400)
+        // A matching If-None-Match on the current request yields a 304.
         ResponseFacade::macro('qrcode', function (
             string|\Stringable $data,
             int $status = 200,
@@ -64,7 +65,7 @@ final class QrCodeServiceProvider extends ServiceProvider
             /** @var QrCodeFactory $factory */
             $factory = app('qrcode');
 
-            return $factory->toResponse($data, $status, $renderer, $filename, $maxAge, $download);
+            return $factory->toResponse($data, $status, $renderer, $filename, $maxAge, $download, request());
         });
     }
 

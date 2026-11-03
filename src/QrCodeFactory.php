@@ -23,7 +23,9 @@ use Dunn\QrCode\Renderer\Png\GdPngRenderer;
 use Dunn\QrCode\Renderer\Renderer;
 use Dunn\QrCode\Renderer\Svg\SvgRenderer;
 use Illuminate\Contracts\Config\Repository;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Str;
 
 /**
  * Convenience factory bound into the Laravel container as `qrcode`.
@@ -241,10 +243,13 @@ final class QrCodeFactory
     }
 
     /**
-     * HTTP response for <img src="/qr/..."> or a file download.
+     * HTTP response for <img src="/qr?data=..."> or a file download.
      *
-     * Always sets ETag. Pass $filename and/or $download for
-     * Content-Disposition, $maxAge (seconds) for Cache-Control.
+     * Always sets an ETag (quoted SHA-256 of the body). Pass $filename and/or
+     * $download for Content-Disposition, $maxAge (seconds) for Cache-Control.
+     * Pass the current $request to answer a matching `If-None-Match` with
+     * `304 Not Modified` (only for a 200 response to a GET/HEAD request); the
+     * response()->qrcode() macro does this automatically.
      */
     public function toResponse(
         string|\Stringable $data,
@@ -253,6 +258,7 @@ final class QrCodeFactory
         ?string $filename = null,
         ?int $maxAge = null,
         bool $download = false,
+        ?Request $request = null,
     ): Response {
         $renderer ??= $this->renderer();
         $body = $renderer->render($this->create($data)->build());
@@ -260,10 +266,9 @@ final class QrCodeFactory
 
         $headers = ['Content-Type' => $mime];
 
-        $name = $this->dispositionFilename($filename, $mime, $download);
-        if ($name !== null) {
-            $disposition = $download ? 'attachment' : 'inline';
-            $headers['Content-Disposition'] = $disposition.'; filename="'.$name.'"';
+        $disposition = $this->contentDisposition($filename, $mime, $download);
+        if ($disposition !== null) {
+            $headers['Content-Disposition'] = $disposition;
         }
 
         $response = new Response($body, $status, $headers);
@@ -274,34 +279,64 @@ final class QrCodeFactory
             $response->setMaxAge($maxAge);
         }
 
+        if ($request !== null && $status === 200) {
+            $response->isNotModified($request);
+        }
+
         return $response;
     }
 
-    private function dispositionFilename(?string $filename, string $mime, bool $download): ?string
+    /**
+     * Build the Content-Disposition header value (RFC 6266): an ASCII
+     * `filename` plus a UTF-8 `filename*` when the name is not plain ASCII.
+     */
+    private function contentDisposition(?string $filename, string $mime, bool $download): ?string
     {
         if ($filename === null && ! $download) {
             return null;
         }
 
-        $name = str_replace(["\r", "\n", "\0", '"', "'", '\\', '/'], '', (string) $filename);
-        $name = trim($name);
+        $extension = $this->extensionForMime($mime);
+        $name = $this->sanitizeFilename((string) $filename, $extension);
+        $fallback = $this->sanitizeFilename(
+            (string) preg_replace('/[^\x20-\x7E]|%/', '', Str::ascii($name)),
+            $extension,
+        );
 
-        if ($name === '' || $name === '.' || $name === '..') {
-            $name = 'qrcode';
+        $header = ($download ? 'attachment' : 'inline').'; filename="'.$fallback.'"';
+        if ($fallback !== $name) {
+            $header .= "; filename*=UTF-8''".rawurlencode($name);
         }
 
-        if (pathinfo($name, PATHINFO_EXTENSION) === '') {
-            $name .= '.'.$this->extensionForMime($mime);
+        return $header;
+    }
+
+    /**
+     * Strip path separators, quotes and control characters, drop leading and
+     * trailing dots/whitespace, and make sure the name ends with $extension.
+     */
+    private function sanitizeFilename(string $filename, string $extension): string
+    {
+        $name = rtrim((string) preg_replace('/[\x00-\x1F\x7F"\'\\\\\/]/', '', $filename), " \t.");
+
+        $suffix = pathinfo($name, PATHINFO_EXTENSION);
+        if (strtolower($suffix) === $extension) {
+            $base = substr($name, 0, -strlen($suffix) - 1);
+        } else {
+            $base = $name;
+            $suffix = $extension;
         }
 
-        return $name;
+        $base = trim($base, " \t.");
+
+        return ($base === '' ? 'qrcode' : $base).'.'.$suffix;
     }
 
     private function extensionForMime(string $mime): string
     {
-        return match ($mime) {
-            'image/png' => 'png',
-            'text/plain' => 'txt',
+        return match (true) {
+            str_starts_with($mime, 'image/png') => 'png',
+            str_starts_with($mime, 'text/plain') => 'txt',
             default => 'svg',
         };
     }

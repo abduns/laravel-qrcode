@@ -27,7 +27,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static \Dunn\QrCode\Laravel\QrCodePayload payload(string|\Stringable $data, ?\Dunn\QrCode\Renderer\Renderer $renderer = null)
  * @method static string dataUri(string|\Stringable $data, ?\Dunn\QrCode\Renderer\Renderer $renderer = null)
  * @method static array{mimeType: string, dataUri: string, svg: string|null} toArray(string|\Stringable $data, ?\Dunn\QrCode\Renderer\Renderer $renderer = null)
- * @method static \Illuminate\Http\Response toResponse(string|\Stringable $data, int $status = 200, ?\Dunn\QrCode\Renderer\Renderer $renderer = null, ?string $filename = null, ?int $maxAge = null, bool $download = false)
+ * @method static \Illuminate\Http\Response toResponse(string|\Stringable $data, int $status = 200, ?\Dunn\QrCode\Renderer\Renderer $renderer = null, ?string $filename = null, ?int $maxAge = null, bool $download = false, ?\Illuminate\Http\Request $request = null)
  * @method static \Dunn\QrCode\Renderer\Renderer renderer()
  * @method static \Dunn\QrCode\Laravel\QrCodeFactory withRenderer(\Dunn\QrCode\Renderer\Renderer $renderer)
  */

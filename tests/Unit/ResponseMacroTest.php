@@ -3,6 +3,9 @@
 declare(strict_types=1);
 
 use Dunn\QrCode\Payload\VCard;
+use Dunn\QrCode\Renderer\Console\ConsoleRenderer;
+use Dunn\QrCode\Renderer\Png\GdPngRenderer;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 it('registers a response()->qrcode() macro', function (): void {
@@ -106,4 +109,88 @@ it('factory toResponse() matches the response macro', function (): void {
     expect($viaMacro->getContent())->toBe($viaFactory->getContent());
     expect($viaMacro->headers->get('Content-Disposition'))->toBe($viaFactory->headers->get('Content-Disposition'));
     expect($viaMacro->headers->get('ETag'))->toBe($viaFactory->headers->get('ETag'));
+});
+
+it('derives the download extension from the renderer MIME type', function (): void {
+    Route::get('/qr-dl-txt', fn () => response()->qrcode('HELLO', 200, new ConsoleRenderer(), download: true));
+    expect($this->get('/qr-dl-txt')->headers->get('Content-Disposition'))->toBe('attachment; filename="qrcode.txt"');
+
+    if (extension_loaded('gd')) {
+        Route::get('/qr-dl-png', fn () => response()->qrcode('HELLO', 200, new GdPngRenderer(), download: true));
+        expect($this->get('/qr-dl-png')->headers->get('Content-Disposition'))->toBe('attachment; filename="qrcode.png"');
+    }
+});
+
+it('sanitizes filenames for Content-Disposition', function (string $filename, string $expected): void {
+    $response = app('qrcode')->toResponse('HELLO', filename: $filename);
+
+    expect($response->headers->get('Content-Disposition'))->toBe('inline; filename="'.$expected.'"');
+})->with([
+    'path traversal' => ['../../etc/passwd', 'etcpasswd.svg'],
+    'backslash path' => ['..\\..\\ticket.svg', 'ticket.svg'],
+    'dot-dot' => ['..', 'qrcode.svg'],
+    'dot' => ['.', 'qrcode.svg'],
+    'empty' => ['', 'qrcode.svg'],
+    'extension only' => ['.svg', 'qrcode.svg'],
+    'dotted name' => ['john.doe', 'john.doe.svg'],
+    'domain name' => ['example.com', 'example.com.svg'],
+    'trailing dot' => ['ticket.', 'ticket.svg'],
+    'upper-case extension' => ['ticket.SVG', 'ticket.SVG'],
+    'mismatched extension' => ['ticket.png', 'ticket.png.svg'],
+    'tab and NUL' => ["tic\tket\0.svg", 'ticket.svg'],
+]);
+
+it('adds an RFC 6266 filename* parameter for non-ASCII filenames', function (): void {
+    $response = app('qrcode')->toResponse('HELLO', filename: 'bilét', download: true);
+
+    expect($response->headers->get('Content-Disposition'))
+        ->toBe("attachment; filename=\"bilet.svg\"; filename*=UTF-8''bil%C3%A9t.svg");
+});
+
+it('falls back to an ASCII filename when nothing ASCII is left', function (): void {
+    $response = app('qrcode')->toResponse('HELLO', filename: '票.svg');
+
+    expect($response->headers->get('Content-Disposition'))
+        ->toStartWith('inline; filename="')
+        ->toEndWith("; filename*=UTF-8''%E7%A5%A8.svg");
+    expect($response->headers->get('Content-Disposition'))->toMatch('/^inline; filename="[\x20-\x7E]+\.svg";/');
+});
+
+it('answers a matching If-None-Match with 304 Not Modified', function (): void {
+    Route::get('/qr-304', fn () => response()->qrcode('HELLO'));
+
+    $etag = $this->get('/qr-304')->headers->get('ETag');
+    expect($etag)->toBeString();
+
+    $response = $this->get('/qr-304', ['If-None-Match' => (string) $etag]);
+
+    expect($response->getStatusCode())->toBe(304);
+    expect($response->getContent())->toBe('');
+});
+
+it('answers a stale If-None-Match with the full body', function (): void {
+    Route::get('/qr-stale', fn () => response()->qrcode('HELLO'));
+
+    $response = $this->get('/qr-stale', ['If-None-Match' => '"stale"']);
+
+    $response->assertOk();
+    expect($response->getContent())->toStartWith('<svg ');
+});
+
+it('does not turn a custom status into 304', function (): void {
+    Route::get('/qr-418', fn () => response()->qrcode('HELLO', 418));
+
+    $etag = (string) $this->get('/qr-418')->headers->get('ETag');
+    $response = $this->get('/qr-418', ['If-None-Match' => $etag]);
+
+    expect($response->getStatusCode())->toBe(418);
+    expect($response->getContent())->toStartWith('<svg ');
+});
+
+it('toResponse() only checks If-None-Match when given a request', function (): void {
+    $etag = (string) app('qrcode')->toResponse('HELLO')->headers->get('ETag');
+    $request = Request::create('/qr', 'GET', server: ['HTTP_IF_NONE_MATCH' => $etag]);
+
+    expect(app('qrcode')->toResponse('HELLO')->getStatusCode())->toBe(200);
+    expect(app('qrcode')->toResponse('HELLO', request: $request)->getStatusCode())->toBe(304);
 });
