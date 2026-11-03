@@ -54,8 +54,17 @@ final readonly class QrCodePayload implements Arrayable, JsonSerializable, Strin
         return $this->dataUri;
     }
 
+    /**
+     * Build a base64 data URI. Text MIME types without an explicit charset get
+     * `;charset=utf-8`, since RFC 2397 would otherwise default them to
+     * US-ASCII and garble the console renderer's block glyphs.
+     */
     public static function encodeDataUri(string $mimeType, string $body): string
     {
+        if (str_starts_with(strtolower($mimeType), 'text/') && ! str_contains(strtolower($mimeType), 'charset=')) {
+            $mimeType .= ';charset=utf-8';
+        }
+
         return 'data:'.$mimeType.';base64,'.base64_encode($body);
     }
 }

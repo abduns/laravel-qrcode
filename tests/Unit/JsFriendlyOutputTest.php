@@ -79,9 +79,10 @@ it('payload() sets svg to null for PNG output', function (): void {
 it('dataUri() honours a renderer override', function (): void {
     $uri = laravelQrcodeFactoryForJs()->dataUri('HELLO', new ConsoleRenderer(margin: 1));
 
-    expect($uri)->toStartWith('data:text/plain;base64,');
+    // Text data URIs declare UTF-8 so the block glyphs are not decoded as US-ASCII.
+    expect($uri)->toStartWith('data:text/plain;charset=utf-8;base64,');
 
-    $encoded = substr($uri, strlen('data:text/plain;base64,'));
+    $encoded = substr($uri, strlen('data:text/plain;charset=utf-8;base64,'));
     $text = base64_decode($encoded, true);
     expect($text)->toBeString()->toContain('██');
 });
@@ -104,4 +105,20 @@ it('returning payload() from a route yields JSON for SPA clients', function (): 
     expect($response->json('mimeType'))->toBe('image/svg+xml');
     expect($response->json('dataUri'))->toStartWith('data:image/svg+xml;base64,');
     expect($response->json('svg'))->toStartWith('<svg ');
+});
+
+it('payload() declares UTF-8 for console output picked from config', function (): void {
+    config(['qrcode.renderer' => 'console']);
+
+    $payload = laravelQrcodeFactoryForJs()->payload('HELLO');
+
+    expect($payload->mimeType)->toBe('text/plain');
+    expect($payload->svg)->toBeNull();
+    expect($payload->dataUri)->toStartWith('data:text/plain;charset=utf-8;base64,');
+});
+
+it('encodeDataUri() keeps an explicit charset and leaves image types alone', function (): void {
+    expect(QrCodePayload::encodeDataUri('text/plain; charset=iso-8859-1', 'x'))
+        ->toBe('data:text/plain; charset=iso-8859-1;base64,eA==');
+    expect(QrCodePayload::encodeDataUri('image/svg+xml', 'x'))->toBe('data:image/svg+xml;base64,eA==');
 });
