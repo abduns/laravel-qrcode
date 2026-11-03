@@ -5,28 +5,65 @@ format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 once it reaches 1.0.0. Pre-1.0 minor bumps may carry breaking changes.
 
-## [1.3.1] — 2026-08-27
+## [Unreleased]
 
-CI and constraint widening so Laravel 13 is tested, not only claimed.
+Not tagged yet. This section also holds the work that earlier drafts of this
+file listed as 1.3.0 and 1.3.1 (dated 2026-08-27): neither was ever tagged or
+published, so both are folded in here. The latest release is 1.2.3.
 
-### Changed
-- `illuminate/support: ^12.0|^13.0` is a runtime requirement (the bridge
-  already used Support / HTTP / Blade APIs).
-- Dev constraints allow both test stacks: Pest `^3.0|^4.0`,
-  `pest-plugin-laravel` `^3.0|^4.1`, Testbench `^10.0|^11.0`.
-
-### CI
-- Matrix now includes Laravel 13 on PHP 8.3 and 8.4 (Pest 4 + Testbench 11).
-  Laravel 12 stays on PHP 8.2–8.4 with Pest 3 — Pest 4 and Laravel 13 both
-  require PHP 8.3+.
-- Each job pins `illuminate/support`, `orchestra/testbench`, `pestphp/pest`,
-  and `pestphp/pest-plugin-laravel` before `composer update`.
-
-## [1.3.0] — 2026-08-27
-
-Additive release — no breaking changes. Makes the PHP bridge straightforward
-to consume from Laravel + React, Laravel + Vue, Inertia, and JSON APIs
-without shipping JavaScript.
+### Changed (behaviour)
+- **`svg()` and `@qrcode` always render SVG.** They used to follow
+  `config('qrcode.renderer')` and any renderer pinned with `withRenderer()`,
+  so `renderer => 'png'` made `@qrcode` write raw PNG bytes into the HTML and
+  `withRenderer($console)->svg()` returned console text. A pinned renderer is
+  now used by `svg()` only when it produces `image/svg+xml`; otherwise an
+  `SvgRenderer` is built from config. A renderer passed explicitly as the
+  second argument is still used as is. `render()`, `payload()`, `dataUri()`,
+  `toArray()` and `response()->qrcode()` still follow the configured or
+  pinned renderer. If you relied on `svg()` returning another format, call
+  `render()` instead.
+- **Config is read on every call.** The `qrcode` singleton used to snapshot
+  `config('qrcode')` when first resolved, so later runtime changes (per-tenant
+  styling in middleware, config set in tests after first use) were ignored.
+  `QrCodeFactory` now accepts the config repository (a plain array still
+  works) and `withRenderer()` carries it over.
+- **Invalid config values throw `InvalidConfigurationException`.**
+  - `qrcode.ecc` accepts an `EccLevel` case or a string: `'L'` / `'M'` /
+    `'Q'` / `'H'` or `'low'` / `'medium'` / `'quartile'` / `'high'`, in any
+    case, so `env('QRCODE_ECC', 'M')` works. String values used to be
+    silently ignored (falling back to Medium); unknown values now throw.
+  - `qrcode.renderer` is case-insensitive (`'PNG'` works). Unknown names such
+    as `'gd'` used to fall back to SVG silently; they now throw.
+  - `size` / `margin` must be integers (numeric strings are accepted, empty
+    strings mean "use the default"); colours must be strings. Values the core
+    rejects (`size` 0, negative `margin`, `'red'`) now surface as
+    `InvalidConfigurationException` (with the core exception as `previous`)
+    instead of a plain `\InvalidArgumentException`. Code that caught
+    `\InvalidArgumentException` around rendering must catch
+    `InvalidConfigurationException` (or `QrCodeException`) instead.
+- **`response()->qrcode()` answers `If-None-Match`.** A request whose
+  `If-None-Match` matches the ETag now gets `304 Not Modified` with an empty
+  body (200 responses to GET/HEAD only; custom statuses are left alone).
+  `toResponse()` gains an optional trailing `?Request $request` argument for
+  the same behaviour outside the macro.
+- **Content-Disposition filenames.**
+  - The MIME-derived extension is appended unless the name already ends with
+    it: `john.doe` → `john.doe.svg` (was sent without an extension),
+    `ticket.` → `ticket.svg` (was `ticket..svg`), `ticket.png` from the SVG
+    renderer → `ticket.png.svg`.
+  - Leading/trailing dots, all control characters, quotes and path
+    separators are stripped (`../../etc/passwd` → `etcpasswd.svg`).
+  - Non-ASCII names are sent as an ASCII `filename` plus an RFC 6266
+    `filename*=UTF-8''…` parameter instead of raw UTF-8 bytes.
+- Text data URIs declare their charset: console output is now
+  `data:text/plain;charset=utf-8;base64,…` (was `data:text/plain;base64,…`,
+  which browsers decoded as US-ASCII). The payload's `mimeType` stays
+  `text/plain`.
+- The service provider no longer resolves the view and routing services on
+  every boot: the directive is registered when `blade.compiler` is first
+  resolved and the macro statically on `Illuminate\Routing\ResponseFactory`.
+  The unused `provides()` method is removed (the provider was never
+  deferred).
 
 ### Added
 - `QrCodePayload` — JSON-serializable DTO with `mimeType`, `dataUri`, and
@@ -39,43 +76,88 @@ without shipping JavaScript.
 - `QrCodeFactory::toArray(...)` — same shape as the payload, as a plain array.
 - `QrCodeFactory::toResponse(...)` — HTTP response builder used by the
   `response()->qrcode()` macro. Always sets `ETag`. Optional `filename`,
-  `maxAge` (seconds, `Cache-Control: public`), and `download` (attachment
-  vs inline). A filename without an extension gets `.svg` / `.png` / `.txt`
-  from the renderer MIME type. Filenames are stripped of quotes and CR/LF.
+  `maxAge` (seconds, `Cache-Control: public`), `download` (attachment vs
+  inline) and `request` (conditional GET).
 - Facade `@method` entries for `payload`, `dataUri`, `toArray`, `toResponse`.
 - `response()->qrcode()` named extras: `filename`, `maxAge`, `download`.
   Existing positional calls (`$data`, `$status`, `$renderer`) are unchanged.
+- `composer.json` suggests `ext-gd` (needed by `png()` and the `'png'`
+  renderer), and gains `homepage`, `support` and more keywords.
+- `.gitattributes` keeps tests, CI and tool configs out of the dist archive.
+
+### Dependencies
+- Requires `illuminate/contracts`, `illuminate/http`, `illuminate/routing`
+  and `illuminate/view` (`^12.0|^13.0`) next to `illuminate/support`: the
+  bridge uses the HTTP response/request classes, the routing response
+  factory and the Blade compiler directly.
+- `abduns/qrcode` is required as `^1.1`. 1.2.3 was published with
+  `^1.1 || dev-main`; the `dev-main` alternative and the custom `vcs`
+  repository entry are gone, so the core installs from Packagist.
+- Dev constraints allow both test stacks: Pest `^3.0|^4.0`,
+  `pest-plugin-laravel` `^3.0|^4.0`, Testbench `^10.0|^11.0`;
+  php-cs-fixer `^3.88`.
+- Author e-mail is now `werk@abduns.com`.
+
+### Fixed
+- README: the image-URL example used `Route::get('/qr/{data}')`, which returns
+  404 for any URL-encoded URL because `%2F` decodes to `/` before route
+  matching. It now uses a query string (`/qr?data=...`) and warns that the
+  endpoint is public and should be rate-limited or signed.
+- README and config docs now agree with the code about which methods follow
+  `config('qrcode.renderer')`, the accepted config values, and the exceptions
+  to catch.
 
 ### Tests
-- `tests/Unit/JsFriendlyOutputTest.php` — data URI encoding (SVG / PNG /
-  console), payload JSON shape, string cast, facade proxies, and
+- New: `SvgAlwaysSvgTest`, `ConfigTest` (size / margin / colours applied to
+  SVG, PNG and console output; runtime config changes; ECC / renderer
+  normalisation and validation), `ServiceProviderTest` (publish tag,
+  `vendor:publish`, auto-discovery entries, lazy registration).
+- `PayloadFactoryTest` compares every typed factory with the core
+  equivalent and with variants that drop an argument, instead of asserting
+  `build()` is not null.
+- `ResponseMacroTest` covers `.png` / `.txt` download names, filename
+  sanitisation, `filename*`, and conditional requests (304, stale ETag,
+  custom status).
+- `JsFriendlyOutputTest` — data URI encoding (SVG / PNG / console, with
+  charset), payload JSON shape, string cast, facade proxies, and
   `return QrCode::payload()` as a JSON route.
-- `tests/Unit/ResponseMacroTest.php` — ETag, Content-Disposition (inline /
-  attachment / extension / sanitization), Cache-Control, default headers,
-  factory/macro parity.
 
 ### Documentation
 - README rewritten around the three JS consumption patterns (JSON payload,
   image URL, data URI) with Inertia React, Inertia Vue, and SPA fetch
-  examples. Blade, response macro, payloads, styled output, config, and
-  error handling restored.
-- README CI badge now points at `.github/workflows/ci.yml` (it previously
-  linked a non-existent `tests.yml`, so the badge was always broken).
+  examples.
+- README CI badge points at `.github/workflows/ci.yml`.
 
 ### CI
-- `composer.lock` no longer pins `abduns/qrcode` to a local `path` repo
-  (`../qr-code`); CI installs `^1.1` from Packagist.
-- Workflow uses `composer update` after pinning `illuminate/support` to the
-  matrix Laravel version (install against a stale lock was the previous
-  failure mode).
-- `actions/checkout@v5` (Node 24 runtime; v4 warned that Node 20 is dropped
-  2026-09-16).
-- Explicit `gd` + `mbstring` extensions so PNG tests run on the runner.
+- One shared workflow: PHP 8.2–8.5 × Laravel 12 and PHP 8.3–8.5 × Laravel 13,
+  each with `--prefer-lowest` and `--prefer-stable`, plus a separate
+  static-analysis job (`composer validate`, PHPStan at PHP 8.2 level,
+  php-cs-fixer). Read-only token permissions and a concurrency group.
+- `gd` + `mbstring` extensions so PNG tests run on the runner.
+- php-cs-fixer uses the `@PHP8x2Migration` sets (the `@PHP82Migration` names
+  are deprecated) and also lints `config/`.
+
+## [1.2.3] — 2026-05-17
+
+### Changed
+- `composer test` runs `@php ./vendor/bin/pest`.
 
 ### Notes
-- Backward compatible. The only behavioural change on `response()->qrcode()`
-  is an `ETag` header (quoted SHA-256 of the body). No `Content-Disposition`
-  or `Cache-Control` unless you opt in.
+- Like every release since 1.1.1, this one requires
+  `abduns/qrcode: ^1.1 || dev-main`. The `dev-main` alternative is dropped in
+  [Unreleased].
+
+### Documentation
+- Removed the custom coverage badge from the README.
+
+## [1.2.2] — 2026-05-17
+
+Re-tag of the 1.2.1 commit; no changes.
+
+## [1.2.1] — 2026-05-17
+
+### Documentation
+- README rewritten in a shorter, more conventional layout.
 
 ## [1.2.0] — 2026-05-11
 
@@ -88,6 +170,8 @@ default renderer from config without writing PHP.
 - `QrCodeFactory::render(string|\Stringable $data, ?Renderer $renderer = null)` —
   renderer-agnostic primary. Uses the override → pinned default →
   config-driven default chain. `svg()` is preserved as a BC alias.
+  (Despite the note below, 1.2.x `svg()` and `@qrcode` did follow
+  `config('qrcode.renderer')`; this is fixed in [Unreleased].)
 - `QrCodeFactory::png(string|\Stringable $data, ?Renderer $renderer = null)` —
   forces a `GdPngRenderer` built from config when no override is supplied.
   Ignores `config('qrcode.renderer')` and any pinned default, so the result
@@ -292,3 +376,15 @@ Initial release.
 - `response()->qrcode($data, $status = 200)` macro returns an
   `image/svg+xml` response.
 - Tested via Pest 3 + Orchestra Testbench against Laravel 11 and 12.
+
+[Unreleased]: https://github.com/abduns/laravel-qrcode/compare/v1.2.3...HEAD
+[1.2.3]: https://github.com/abduns/laravel-qrcode/compare/v1.2.2...v1.2.3
+[1.2.2]: https://github.com/abduns/laravel-qrcode/compare/v1.2.1...v1.2.2
+[1.2.1]: https://github.com/abduns/laravel-qrcode/compare/v1.2.0...v1.2.1
+[1.2.0]: https://github.com/abduns/laravel-qrcode/compare/v1.1.1...v1.2.0
+[1.1.1]: https://github.com/abduns/laravel-qrcode/compare/v1.1.0...v1.1.1
+[1.1.0]: https://github.com/abduns/laravel-qrcode/compare/v1.0.0...v1.1.0
+[1.0.0]: https://github.com/abduns/laravel-qrcode/compare/v0.3.0...v1.0.0
+[0.3.0]: https://github.com/abduns/laravel-qrcode/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/abduns/laravel-qrcode/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/abduns/laravel-qrcode/releases/tag/v0.1.0
