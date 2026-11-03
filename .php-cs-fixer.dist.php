@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 $finder = (new PhpCsFixer\Finder())
+    ->in(__DIR__ . '/config')
     ->in(__DIR__ . '/src')
     ->in(__DIR__ . '/tests');
 
@@ -10,8 +11,8 @@ return (new PhpCsFixer\Config())
     ->setRiskyAllowed(true)
     ->setRules([
         '@PSR12' => true,
-        '@PHP82Migration' => true,
-        '@PHP82Migration:risky' => true,
+        '@PHP8x2Migration' => true,
+        '@PHP8x2Migration:risky' => true,
         'declare_strict_types' => true,
         'array_syntax' => ['syntax' => 'short'],
         'no_unused_imports' => true,
