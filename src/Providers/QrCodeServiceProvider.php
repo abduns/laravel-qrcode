@@ -6,16 +6,21 @@ namespace Dunn\QrCode\Laravel\Providers;
 
 use Dunn\QrCode\Laravel\QrCodeFactory;
 use Dunn\QrCode\Renderer\Renderer;
+use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Http\Response;
-use Illuminate\Support\Facades\Blade;
-use Illuminate\Support\Facades\Response as ResponseFacade;
+use Illuminate\Routing\ResponseFactory;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\View\Compilers\BladeCompiler;
 
 /**
  * Registers the QR code factory as a singleton, publishes the config, and
  * wires up the `@qrcode(...)` Blade directive plus `response()->qrcode(...)`
  * macro.
+ *
+ * The provider is intentionally not deferred: boot() registers a Blade
+ * directive and a response macro. Neither registration resolves the view or
+ * routing services, so queue workers and artisan commands pay nothing for it.
  */
 final class QrCodeServiceProvider extends ServiceProvider
 {
@@ -27,7 +32,7 @@ final class QrCodeServiceProvider extends ServiceProvider
         // `qrcode.*` lazily, so config changes made after the first
         // resolution are honoured.
         $this->app->singleton('qrcode', static function (Application $app): QrCodeFactory {
-            /** @var \Illuminate\Contracts\Config\Repository $config */
+            /** @var Repository $config */
             $config = $app->make('config');
 
             return new QrCodeFactory($config);
@@ -46,7 +51,11 @@ final class QrCodeServiceProvider extends ServiceProvider
 
         // Blade directive: @qrcode('https://example.com')
         // Always renders inline SVG markup (see QrCodeFactory::svg()).
-        Blade::directive('qrcode', static fn (string $expression): string => "<?php echo app('qrcode')->svg({$expression}); ?>");
+        // Registered once the Blade compiler is first resolved (immediately if
+        // it already is), so booting the app does not build the view layer.
+        $this->callAfterResolving('blade.compiler', static function (BladeCompiler $blade): void {
+            $blade->directive('qrcode', static fn (string $expression): string => "<?php echo app('qrcode')->svg({$expression}); ?>");
+        });
 
         // Response macro: return response()->qrcode('https://example.com');
         // Named extras (filename / maxAge / download) are for <img src> caching
@@ -54,7 +63,9 @@ final class QrCodeServiceProvider extends ServiceProvider
         //   response()->qrcode($url, 200, new SvgRenderer(moduleShape: new DotModule()))
         //   response()->qrcode($url, filename: 'ticket.svg', maxAge: 86400)
         // A matching If-None-Match on the current request yields a 304.
-        ResponseFacade::macro('qrcode', function (
+        // Registered statically on the concrete factory, which needs no
+        // container resolution.
+        ResponseFactory::macro('qrcode', function (
             string|\Stringable $data,
             int $status = 200,
             ?Renderer $renderer = null,
@@ -67,13 +78,5 @@ final class QrCodeServiceProvider extends ServiceProvider
 
             return $factory->toResponse($data, $status, $renderer, $filename, $maxAge, $download, request());
         });
-    }
-
-    /**
-     * @return array<int, string>
-     */
-    public function provides(): array
-    {
-        return ['qrcode', QrCodeFactory::class];
     }
 }
