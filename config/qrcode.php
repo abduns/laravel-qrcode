@@ -13,6 +13,11 @@ return [
     | One of EccLevel::Low, Medium, Quartile, High. Trades data capacity for
     | damage tolerance: ~7%, ~15%, ~25%, ~30% recoverable respectively.
     |
+    | Strings work too, so the level can come from the environment:
+    | 'L' / 'M' / 'Q' / 'H' or 'low' / 'medium' / 'quartile' / 'high' (any
+    | case), e.g. env('QRCODE_ECC', 'M'). An unknown value throws
+    | Dunn\QrCode\Exception\InvalidConfigurationException.
+    |
     */
     'ecc' => EccLevel::Medium,
 
@@ -28,10 +33,13 @@ return [
     |   'png'     — Dunn\QrCode\Renderer\Png\GdPngRenderer (requires ext-gd)
     |   'console' — Dunn\QrCode\Renderer\Console\ConsoleRenderer (debug)
     |
-    | Keep this as 'svg' if you use the @qrcode Blade directive — the
-    | directive emits the renderer's output inline, so PNG bytes would land
-    | as binary in your HTML. QrCode::png() / QrCode::console() ignore this
-    | setting and always force their renderer type.
+    | Names are case-insensitive; an unknown name throws
+    | Dunn\QrCode\Exception\InvalidConfigurationException.
+    |
+    | This drives render(), payload(), dataUri(), toArray() and
+    | response()->qrcode(). It does NOT change QrCode::svg() or the @qrcode
+    | Blade directive (always SVG), nor QrCode::png() / QrCode::console()
+    | (always their own renderer type).
     |
     */
     'renderer' => 'svg',
@@ -47,9 +55,15 @@ return [
     |   svg / png — size, margin, foreground, background
     |   console   — margin only (in cells, not pixels)
     |
+    | size and margin are integers (numeric strings are accepted); colours
+    | are hex strings such as '#000000'. Invalid values throw
+    | Dunn\QrCode\Exception\InvalidConfigurationException when rendering.
+    |
     | All four keys are IGNORED once you pin a renderer via
     | QrCode::withRenderer(...) or pass one to ->render() / ->svg() /
     | response()->qrcode(...) — that renderer carries its own configuration.
+    | (svg() still builds an SvgRenderer from these keys when the pinned
+    | renderer does not produce SVG.)
     |
     */
     'size' => 300,

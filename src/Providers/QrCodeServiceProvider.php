@@ -23,12 +23,12 @@ final class QrCodeServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__.'/../../config/qrcode.php', 'qrcode');
 
-        $this->app->singleton('qrcode', function (Application $app): QrCodeFactory {
-            /** @var \Illuminate\Contracts\Config\Repository $repo */
-            $repo = $app->make('config');
-
-            /** @var array{ecc?: \Dunn\QrCode\EccLevel, renderer?: 'svg'|'png'|'console', size?: int, margin?: int, foreground?: string, background?: string} $config */
-            $config = $repo->get('qrcode', []);
+        // The factory keeps a reference to the config repository and reads
+        // `qrcode.*` lazily, so config changes made after the first
+        // resolution are honoured.
+        $this->app->singleton('qrcode', static function (Application $app): QrCodeFactory {
+            /** @var \Illuminate\Contracts\Config\Repository $config */
+            $config = $app->make('config');
 
             return new QrCodeFactory($config);
         });
@@ -45,7 +45,7 @@ final class QrCodeServiceProvider extends ServiceProvider
         }
 
         // Blade directive: @qrcode('https://example.com')
-        // Renders an inline <svg> string using the factory's default renderer.
+        // Always renders inline SVG markup (see QrCodeFactory::svg()).
         Blade::directive('qrcode', static fn (string $expression): string => "<?php echo app('qrcode')->svg({$expression}); ?>");
 
         // Response macro: return response()->qrcode('https://example.com');

@@ -6,6 +6,7 @@ namespace Dunn\QrCode\Laravel;
 
 use Dunn\QrCode\Builder;
 use Dunn\QrCode\EccLevel;
+use Dunn\QrCode\Exception\InvalidConfigurationException;
 use Dunn\QrCode\Payload\Email;
 use Dunn\QrCode\Payload\Event;
 use Dunn\QrCode\Payload\Geo;
@@ -21,6 +22,7 @@ use Dunn\QrCode\Renderer\Console\ConsoleRenderer;
 use Dunn\QrCode\Renderer\Png\GdPngRenderer;
 use Dunn\QrCode\Renderer\Renderer;
 use Dunn\QrCode\Renderer\Svg\SvgRenderer;
+use Illuminate\Contracts\Config\Repository;
 use Illuminate\Http\Response;
 
 /**
@@ -31,24 +33,25 @@ use Illuminate\Http\Response;
  * {@see \Dunn\QrCode\Laravel\Facades\QrCode} facade and pre-apply sensible
  * defaults from `config/qrcode.php`.
  *
- * Pass a {@see Renderer} to {@see svg()} (or {@see withRenderer()}) to opt
- * into the core package's styled rendering (custom shapes / per-region
- * colours / logo overlay).
+ * Pass a {@see Renderer} to {@see render()} / {@see svg()} (or
+ * {@see withRenderer()}) to opt into the core package's styled rendering
+ * (custom shapes / per-region colours / logo overlay).
+ *
+ * Configuration is read lazily on every call, so runtime changes to
+ * `config('qrcode.*')` made after the factory was first resolved are honoured.
  */
 final class QrCodeFactory
 {
+    private const RENDERER_KINDS = ['svg', 'png', 'console'];
+
     /**
-     * @param array{
-     *     ecc?: EccLevel,
-     *     renderer?: 'svg'|'png'|'console',
-     *     size?: int,
-     *     margin?: int,
-     *     foreground?: string,
-     *     background?: string,
-     * } $config
+     * @param array<string, mixed>|Repository $config either the `qrcode` config
+     *     array (keys: ecc, renderer, size, margin, foreground, background) or
+     *     the application config repository, which is then read lazily from
+     *     the `qrcode.*` keys on every call
      */
     public function __construct(
-        private array $config = [],
+        private array|Repository $config = [],
         private ?Renderer $defaultRenderer = null,
     ) {
     }
@@ -56,12 +59,14 @@ final class QrCodeFactory
     /**
      * Begin building a QR code for $data, pre-applying the configured ECC.
      * Accepts a raw string or any {@see \Stringable} payload value object.
+     *
+     * @throws InvalidConfigurationException when config('qrcode.ecc') is not a valid level
      */
     public function create(string|\Stringable $data): Builder
     {
         $builder = QrCode::create($data);
-        $ecc = $this->config['ecc'] ?? null;
-        if ($ecc instanceof EccLevel) {
+        $ecc = $this->eccLevel();
+        if ($ecc !== null) {
             $builder = $builder->errorCorrection($ecc);
         }
 
@@ -140,15 +145,16 @@ final class QrCodeFactory
     }
 
     /**
-     * Render with the default renderer (or the override). Behaves identically
-     * to render() — kept as the historical name and called by the @qrcode
-     * Blade directive. If you've set config('qrcode.renderer') = 'png' the
-     * directive will emit PNG bytes inline, which is rarely useful — keep the
-     * default as 'svg' for HTML embedding.
+     * Render to SVG markup. Used by the @qrcode Blade directive.
+     *
+     * Always produces SVG, whatever config('qrcode.renderer') says: a renderer
+     * pinned via withRenderer() is used only when it produces SVG
+     * (`image/svg+xml`); otherwise an SvgRenderer is built from config. An
+     * explicitly passed $renderer is used as is, like png() and console().
      */
     public function svg(string|\Stringable $data, ?Renderer $renderer = null): string
     {
-        return $this->render($data, $renderer);
+        return ($renderer ?? $this->svgRenderer())->render($this->create($data)->build());
     }
 
     /**
@@ -174,12 +180,14 @@ final class QrCodeFactory
 
     /**
      * Return the default renderer — either the one pinned via withRenderer(),
-     * or a fresh instance built from config('qrcode') honouring the
-     * `renderer` key (`svg` | `png` | `console`).
+     * or a fresh instance built from the current config('qrcode') honouring
+     * the `renderer` key (`svg` | `png` | `console`).
+     *
+     * @throws InvalidConfigurationException when the renderer name or its options are invalid
      */
     public function renderer(): Renderer
     {
-        return $this->defaultRenderer ?? $this->buildRenderer($this->config['renderer'] ?? 'svg');
+        return $this->defaultRenderer ?? $this->buildRenderer($this->rendererKind());
     }
 
     /**
@@ -209,7 +217,7 @@ final class QrCodeFactory
         return new QrCodePayload(
             mimeType: $mime,
             dataUri: QrCodePayload::encodeDataUri($mime, $body),
-            svg: str_starts_with($mime, 'image/svg') ? $body : null,
+            svg: self::isSvgMime($mime) ? $body : null,
         );
     }
 
@@ -298,24 +306,152 @@ final class QrCodeFactory
         };
     }
 
+    private static function isSvgMime(string $mime): bool
+    {
+        return str_starts_with(strtolower($mime), 'image/svg');
+    }
+
+    /**
+     * The pinned renderer when it produces SVG, otherwise an SvgRenderer
+     * built from config.
+     */
+    private function svgRenderer(): Renderer
+    {
+        if ($this->defaultRenderer !== null && self::isSvgMime($this->defaultRenderer->mimeType())) {
+            return $this->defaultRenderer;
+        }
+
+        return $this->buildRenderer('svg');
+    }
+
     private function buildRenderer(string $kind): Renderer
     {
-        return match ($kind) {
-            'png' => new GdPngRenderer(
-                size: (int) ($this->config['size'] ?? 300),
-                margin: (int) ($this->config['margin'] ?? 4),
-                foreground: (string) ($this->config['foreground'] ?? '#000000'),
-                background: (string) ($this->config['background'] ?? '#ffffff'),
-            ),
-            'console' => new ConsoleRenderer(
-                margin: (int) ($this->config['margin'] ?? 1),
-            ),
-            default => new SvgRenderer(
-                size: (int) ($this->config['size'] ?? 300),
-                margin: (int) ($this->config['margin'] ?? 4),
-                foreground: (string) ($this->config['foreground'] ?? '#000000'),
-                background: (string) ($this->config['background'] ?? '#ffffff'),
-            ),
+        try {
+            return match ($kind) {
+                'png' => new GdPngRenderer(
+                    size: $this->intOption('size', 300),
+                    margin: $this->intOption('margin', 4),
+                    foreground: $this->stringOption('foreground', '#000000'),
+                    background: $this->stringOption('background', '#ffffff'),
+                ),
+                'console' => new ConsoleRenderer(
+                    margin: $this->intOption('margin', 1),
+                ),
+                'svg' => new SvgRenderer(
+                    size: $this->intOption('size', 300),
+                    margin: $this->intOption('margin', 4),
+                    foreground: $this->stringOption('foreground', '#000000'),
+                    background: $this->stringOption('background', '#ffffff'),
+                ),
+                default => throw self::invalidOption('renderer', $kind, '"svg", "png" or "console"'),
+            };
+        } catch (\InvalidArgumentException $e) {
+            // The core renderers and Color reject bad size/margin/colour values
+            // with a plain \InvalidArgumentException; surface them as the
+            // documented configuration error instead.
+            throw new InvalidConfigurationException('Invalid qrcode rendering config: '.$e->getMessage(), 0, $e);
+        }
+    }
+
+    /**
+     * Resolve config('qrcode.renderer'), accepting any case and surrounding
+     * whitespace. Unset or empty means `svg`.
+     */
+    private function rendererKind(): string
+    {
+        $kind = $this->option('renderer');
+        if ($kind === null || $kind === '') {
+            return 'svg';
+        }
+
+        if (is_string($kind)) {
+            $normalised = strtolower(trim($kind));
+            if (in_array($normalised, self::RENDERER_KINDS, true)) {
+                return $normalised;
+            }
+        }
+
+        throw self::invalidOption('renderer', $kind, '"svg", "png" or "console"');
+    }
+
+    /**
+     * Resolve config('qrcode.ecc'). Accepts an EccLevel, its backing value
+     * ('L', 'M', 'Q', 'H') or its case name ('low', 'Medium', ...), in any
+     * case, so env() strings work. Unset or empty means the core default.
+     */
+    private function eccLevel(): ?EccLevel
+    {
+        $ecc = $this->option('ecc');
+        if ($ecc === null || $ecc === '') {
+            return null;
+        }
+
+        if ($ecc instanceof EccLevel) {
+            return $ecc;
+        }
+
+        if (is_string($ecc)) {
+            $normalised = strtoupper(trim($ecc));
+            foreach (EccLevel::cases() as $level) {
+                if ($level->value === $normalised || strtoupper($level->name) === $normalised) {
+                    return $level;
+                }
+            }
+        }
+
+        throw self::invalidOption('ecc', $ecc, 'an EccLevel case or one of "L", "M", "Q", "H", "low", "medium", "quartile", "high"');
+    }
+
+    private function intOption(string $key, int $default): int
+    {
+        $value = $this->option($key);
+        if ($value === null || $value === '') {
+            return $default;
+        }
+
+        if (is_int($value)) {
+            return $value;
+        }
+
+        if (is_string($value) && preg_match('/^\s*[+-]?\d+\s*$/', $value) === 1) {
+            return (int) $value;
+        }
+
+        throw self::invalidOption($key, $value, 'an integer');
+    }
+
+    private function stringOption(string $key, string $default): string
+    {
+        $value = $this->option($key);
+        if ($value === null || $value === '') {
+            return $default;
+        }
+
+        if (is_string($value)) {
+            return $value;
+        }
+
+        throw self::invalidOption($key, $value, 'a hex colour string such as "#000000"');
+    }
+
+    private function option(string $key): mixed
+    {
+        if ($this->config instanceof Repository) {
+            return $this->config->get('qrcode.'.$key);
+        }
+
+        return $this->config[$key] ?? null;
+    }
+
+    private static function invalidOption(string $key, mixed $value, string $expected): InvalidConfigurationException
+    {
+        $given = match (true) {
+            is_string($value) => '"'.$value.'"',
+            is_scalar($value) => var_export($value, true),
+            is_object($value) => $value::class,
+            default => get_debug_type($value),
         };
+
+        return new InvalidConfigurationException(sprintf('Invalid qrcode.%s config value %s; expected %s.', $key, $given, $expected));
     }
 }
