@@ -91,8 +91,9 @@ published, so both are folded in here. The latest release is 1.2.3.
   bridge uses the HTTP response/request classes, the routing response
   factory and the Blade compiler directly.
 - `abduns/qrcode` is required as `^1.1`. 1.2.3 was published with
-  `^1.1 || dev-main`; the `dev-main` alternative and the custom `vcs`
-  repository entry are gone, so the core installs from Packagist.
+  `^1.1 || dev-main`; the `dev-main` alternative and the custom
+  `repositories` entries (a local `../qr-code` path repository and a `vcs`
+  entry) are gone, so the core installs from Packagist.
 - Dev constraints allow both test stacks: Pest `^3.0|^4.0`,
   `pest-plugin-laravel` `^3.0|^4.0`, Testbench `^10.0|^11.0`;
   php-cs-fixer `^3.88`.
